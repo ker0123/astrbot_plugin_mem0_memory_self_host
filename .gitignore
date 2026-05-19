@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+.env
+.venv/
+venv/
+
+# Local AstrBot config may contain real API keys.
+data/config/
+*_config.json
+
+# OS/editor noise.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,58 @@
+{
+  "enable": {
+    "description": "启用 mem0 长期记忆",
+    "type": "bool",
+    "default": true
+  },
+  "mem0_api_key": {
+    "description": "mem0 API Key",
+    "hint": "mem0 托管服务的 API Key。请勿公开或发给不可信的人。",
+    "type": "string",
+    "default": ""
+  },
+  "memory_scope": {
+    "description": "记忆作用域",
+    "hint": "session 表示按平台会话分别存储记忆；sender 表示按发送者 ID 存储记忆。",
+    "type": "string",
+    "options": [
+      "session",
+      "sender"
+    ],
+    "default": "session"
+  },
+  "user_id_prefix": {
+    "description": "mem0 用户 ID 前缀",
+    "type": "string",
+    "default": "astrbot"
+  },
+  "search_limit": {
+    "description": "最多注入记忆数量",
+    "type": "int",
+    "default": 5
+  },
+  "search_threshold": {
+    "description": "检索相关性阈值",
+    "type": "float",
+    "default": 0.1
+  },
+  "max_memory_chars": {
+    "description": "单条记忆最大字符数",
+    "type": "int",
+    "default": 240
+  },
+  "inject_as_system_prompt": {
+    "description": "注入到系统提示词",
+    "type": "bool",
+    "default": true
+  },
+  "ignore_commands": {
+    "description": "忽略命令消息",
+    "type": "bool",
+    "default": true
+  },
+  "request_timeout": {
+    "description": "mem0 请求超时时间（秒）",
+    "type": "float",
+    "default": 12
+  }
+}
