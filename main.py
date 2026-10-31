@@ -5,14 +5,12 @@ import re
 from typing import Any
 
 import aiohttp
-
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.provider import LLMResponse, ProviderRequest
 from astrbot.api.star import Context, Star, register
 
-
-MEM0_API_BASE = "https://api.mem0.ai"
+MEM0_OFFICIAL_API_URL_BASE = "https://api.mem0.ai"
 
 
 @register(
@@ -43,11 +41,11 @@ class Mem0MemoryPlugin(Star):
         return self.config.get(key, default)
 
     def _api_key(self) -> str:
-        return str(self._cfg("mem0_api_key", "") or "").strip()
+        return str(self._cfg("mem0_api_key", "")).strip()
 
     def _api_base(self) -> str:
-        base = str(self._cfg("mem0_api_url_base", "") or "").strip()
-        return (base or MEM0_API_BASE).rstrip("/")
+        base = str(self._cfg("mem0_api_url_base", "")).strip()
+        return (base or MEM0_OFFICIAL_API_URL_BASE).rstrip("/")
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -56,12 +54,12 @@ class Mem0MemoryPlugin(Star):
         }
 
     def _user_id(self, event: AstrMessageEvent) -> str:
-        scope = str(self._cfg("memory_scope", "session") or "session").lower()
+        scope = str(self._cfg("memory_scope", "session")).lower()
         if scope == "sender":
             raw = event.get_sender_id() or event.unified_msg_origin
         else:
             raw = event.unified_msg_origin
-        prefix = str(self._cfg("user_id_prefix", "astrbot") or "").strip()
+        prefix = str(self._cfg("user_id_prefix", "astrbot")).strip()
         return f"{prefix}:{raw}" if prefix else str(raw)
 
     def _should_skip_prompt(self, event: AstrMessageEvent, prompt: str) -> bool:
@@ -80,13 +78,19 @@ class Mem0MemoryPlugin(Star):
 
     async def _post(self, path: str, payload: dict[str, Any]) -> Any:
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=float(self._cfg("request_timeout", 12)))
+            timeout = aiohttp.ClientTimeout(
+                total=float(self._cfg("request_timeout", 12) or 12)
+            )
             self._session = aiohttp.ClientSession(timeout=timeout)
         url = f"{self._api_base()}{path}"
-        async with self._session.post(url, headers=self._headers(), json=payload) as resp:
+        async with self._session.post(
+            url, headers=self._headers(), json=payload
+        ) as resp:
             text = await resp.text()
             if resp.status >= 400:
-                raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
+                raise RuntimeError(
+                    f"mem0 {path} failed: HTTP {resp.status} {text[:500]}"
+                )
             if not text:
                 return None
             try:
@@ -98,13 +102,15 @@ class Mem0MemoryPlugin(Star):
         payload = {
             "query": query,
             "filters": {"user_id": user_id},
-            "top_k": int(self._cfg("search_limit", 5)),
-            "threshold": float(self._cfg("search_threshold", 0.1)),
+            "top_k": int(self._cfg("search_limit", 5) or 5),
+            "threshold": float(self._cfg("search_threshold", 0.1) or 0.1),
         }
         response = await self._post("/v3/memories/search/", payload)
         return self._extract_memory_texts(response)
 
-    async def _add_memory(self, user_text: str, assistant_text: str, user_id: str) -> None:
+    async def _add_memory(
+        self, user_text: str, assistant_text: str, user_id: str
+    ) -> None:
         metadata = {
             "source": "astrbot",
             "scope": self._cfg("memory_scope", "session"),
@@ -147,11 +153,11 @@ class Mem0MemoryPlugin(Star):
             text = self._clean_memory_text(text)
             if text:
                 memories.append(text)
-        return memories[: int(self._cfg("search_limit", 5))]
+        return memories[: int(self._cfg("search_limit", 5) or 5)]
 
     def _clean_memory_text(self, text: str) -> str:
         text = re.sub(r"\s+", " ", text or "").strip()
-        max_chars = int(self._cfg("max_memory_chars", 240))
+        max_chars = int(self._cfg("max_memory_chars", 240) or 240)
         if max_chars > 0 and len(text) > max_chars:
             text = text[:max_chars].rstrip() + "..."
         return text
@@ -184,7 +190,9 @@ class Mem0MemoryPlugin(Star):
             return
 
         if bool(self._cfg("inject_as_system_prompt", True)):
-            req.system_prompt = (req.system_prompt or "") + self._memory_context(memories)
+            req.system_prompt = (req.system_prompt or "") + self._memory_context(
+                memories
+            )
         else:
             req.prompt = f"{self._memory_context(memories)}\n{req.prompt or prompt}"
         event.set_extra("mem0_memory_prompt", prompt)
@@ -195,7 +203,9 @@ class Mem0MemoryPlugin(Star):
     async def record_mem0_memory(self, event: AstrMessageEvent, response: LLMResponse):
         if not self._enabled() or not self._api_key():
             return
-        user_text = event.get_extra("mem0_memory_prompt") or event.get_message_str() or ""
+        user_text = (
+            event.get_extra("mem0_memory_prompt") or event.get_message_str() or ""
+        )
         user_text = user_text.strip()
         assistant_text = (response.completion_text or "").strip()
         if self._should_skip_prompt(event, user_text) or not assistant_text:
@@ -239,7 +249,9 @@ class Mem0MemoryPlugin(Star):
             if not memories:
                 yield event.plain_result("mem0 found no matching memories.")
                 return
-            yield event.plain_result("\n".join(f"{idx + 1}. {m}" for idx, m in enumerate(memories)))
+            yield event.plain_result(
+                "\n".join(f"{idx + 1}. {m}" for idx, m in enumerate(memories))
+            )
             return
 
         yield event.plain_result("Usage: /mem0 status | /mem0 search <query>")
