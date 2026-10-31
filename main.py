@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from os import path
+from queue import Empty
 import re
 from typing import Any
 
@@ -10,14 +12,18 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.provider import LLMResponse, ProviderRequest
 from astrbot.api.star import Context, Star, register
 
-MEM0_OFFICIAL_API_URL_BASE = "https://api.mem0.ai"
+V3_API_URL_BASE = "https://api.mem0.ai"
+V3_API_PATH_ADD = "/v3/memories/add"
+V3_API_PATH_SEARCH = "/v3/memories/search"
+OSS_API_PATH_ADD = "/memories/"
+OSS_API_PATH_SEARCH = "/search/"
 
 
 @register(
     "astrbot_plugin_mem0_memory",
     "Codex",
     "Connects AstrBot conversations to hosted mem0 long-term memory.",
-    "0.1.0",
+    "0.2.0",
     "local",
 )
 class Mem0MemoryPlugin(Star):
@@ -25,10 +31,17 @@ class Mem0MemoryPlugin(Star):
         super().__init__(context)
         self.config = config
         self._session: aiohttp.ClientSession | None = None
+        self.api_type: str = "v3"
 
     async def initialize(self):
-        if self._enabled():
-            logger.info("[Mem0Memory] Plugin initialized.")
+        if not self._enabled():
+            return
+        # 探测是否为自托管类型
+        try:
+            await self._get("/openapi.json")
+            self.api_type = "oss"
+        except RuntimeError:
+            pass
 
     async def terminate(self):
         if self._session and not self._session.closed:
@@ -45,22 +58,24 @@ class Mem0MemoryPlugin(Star):
 
     def _api_base(self) -> str:
         base = str(self._cfg("mem0_api_url_base", "")).strip()
-        return (base or MEM0_OFFICIAL_API_URL_BASE).rstrip("/")
+        return (base or V3_API_URL_BASE).rstrip("/")
 
     def _headers(self) -> dict[str, str]:
-        return {
-            "Authorization": f"Token {self._api_key()}",
-            "Content-Type": "application/json",
-        }
+        headers = {"Content-Type": "application/json"}
+        if self.api_type == "oss":
+            headers["X-API-Key"] = self._api_key()
+        else:
+            headers["Authorization"] = f"Token {self._api_key()}"
+        return headers
 
-    def _user_id(self, event: AstrMessageEvent) -> str:
+    def _user_id(self, event: AstrMessageEvent, persona: str = "none") -> str:
         scope = str(self._cfg("memory_scope", "session")).lower()
         if scope == "sender":
-            raw = event.get_sender_id() or event.unified_msg_origin
+            scope = event.get_sender_id() or event.unified_msg_origin
         else:
-            raw = event.unified_msg_origin
+            scope = event.unified_msg_origin
         prefix = str(self._cfg("user_id_prefix", "astrbot")).strip()
-        return f"{prefix}:{raw}" if prefix else str(raw)
+        return f"{prefix}:{persona}:{scope}"
 
     def _should_skip_prompt(self, event: AstrMessageEvent, prompt: str) -> bool:
         if not prompt.strip():
@@ -98,6 +113,26 @@ class Mem0MemoryPlugin(Star):
             except json.JSONDecodeError:
                 return text
 
+    async def _get(self, path: str) -> Any:
+        if not self._session or self._session.closed:
+            timeout = aiohttp.ClientTimeout(
+                total=float(self._cfg("request_timeout", 12) or 12)
+            )
+            self._session = aiohttp.ClientSession(timeout=timeout)
+        url = f"{self._api_base()}{path}"
+        async with self._session.get(url, headers=self._headers()) as resp:
+            text = await resp.text()
+            if resp.status >= 400:
+                raise RuntimeError(
+                    f"mem0 {path} failed: HTTP {resp.status} {text[:500]}"
+                )
+            if not text:
+                return None
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                return text
+
     async def _search_memories(self, query: str, user_id: str) -> list[str]:
         payload = {
             "query": query,
@@ -105,7 +140,8 @@ class Mem0MemoryPlugin(Star):
             "top_k": int(self._cfg("search_limit", 5) or 5),
             "threshold": float(self._cfg("search_threshold", 0.1) or 0.1),
         }
-        response = await self._post("/v3/memories/search/", payload)
+        post_path = OSS_API_PATH_SEARCH if self.api_type == "oss" else V3_API_PATH_SEARCH
+        response = await self._post(post_path, payload)
         return self._extract_memory_texts(response)
 
     async def _add_memory(
@@ -124,7 +160,8 @@ class Mem0MemoryPlugin(Star):
             "user_id": user_id,
             "metadata": metadata,
         }
-        await self._post("/v3/memories/add/", payload)
+        post_path = OSS_API_PATH_ADD if self.api_type == "oss" else V3_API_PATH_ADD
+        await self._post(post_path, payload)
 
     def _extract_memory_texts(self, response: Any) -> list[str]:
         candidates: list[Any] = []
