@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 from os import path
 from queue import Empty
-import re
 from typing import Any
 
 import aiohttp
@@ -67,6 +67,27 @@ class Mem0MemoryPlugin(Star):
         else:
             headers["Authorization"] = f"Token {self._api_key()}"
         return headers
+
+    async def _persona_id(
+        self, event: AstrMessageEvent, req: ProviderRequest | None = None
+    ) -> str:
+        pid = req.conversation.persona_id if req and req.conversation else None
+        if not pid:
+            conv_mgr = self.context.conversation_manager
+            cid = await conv_mgr.get_curr_conversation_id(event.unified_msg_origin)
+            conversation = (
+                await conv_mgr.get_conversation(event.unified_msg_origin, cid)
+                if cid
+                else None
+            )
+            pid = conversation.persona_id if conversation else None
+        if not pid:
+            pid = (
+                self.context.get_config(umo=event.unified_msg_origin)
+                .get("provider_settings", {})
+                .get("default_personality", "default")
+            )
+        return pid or "default"
 
     def _user_id(self, event: AstrMessageEvent, persona: str = "none") -> str:
         scope = str(self._cfg("memory_scope", "session")).lower()
@@ -140,7 +161,9 @@ class Mem0MemoryPlugin(Star):
             "top_k": int(self._cfg("search_limit", 5) or 5),
             "threshold": float(self._cfg("search_threshold", 0.1) or 0.1),
         }
-        post_path = OSS_API_PATH_SEARCH if self.api_type == "oss" else V3_API_PATH_SEARCH
+        post_path = (
+            OSS_API_PATH_SEARCH if self.api_type == "oss" else V3_API_PATH_SEARCH
+        )
         response = await self._post(post_path, payload)
         return self._extract_memory_texts(response)
 
@@ -217,8 +240,13 @@ class Mem0MemoryPlugin(Star):
         if self._should_skip_prompt(event, prompt):
             return
 
+        persona = await self._persona_id(event, req)
+        user_id = self._user_id(event, persona)
+        event.set_extra("mem0_memory_prompt", prompt)
+        event.set_extra("mem0_persona", persona)
+
         try:
-            memories = await self._search_memories(prompt, self._user_id(event))
+            memories = await self._search_memories(prompt, user_id)
         except Exception as exc:
             logger.warning(f"[Mem0Memory] Search failed: {exc}")
             return
@@ -232,8 +260,6 @@ class Mem0MemoryPlugin(Star):
             )
         else:
             req.prompt = f"{self._memory_context(memories)}\n{req.prompt or prompt}"
-        event.set_extra("mem0_memory_prompt", prompt)
-        event.set_extra("mem0_memory_user_id", self._user_id(event))
         logger.debug(f"[Mem0Memory] Injected {len(memories)} memories.")
 
     @filter.on_llm_response(priority=20)
@@ -251,10 +277,11 @@ class Mem0MemoryPlugin(Star):
             return
 
         try:
+            persona = event.get_extra("mem0_persona") or await self._persona_id(event)
             await self._add_memory(
                 user_text=user_text,
                 assistant_text=assistant_text,
-                user_id=event.get_extra("mem0_memory_user_id") or self._user_id(event),
+                user_id=self._user_id(event, persona),
             )
             logger.debug("[Mem0Memory] Saved conversation turn to mem0.")
         except Exception as exc:
@@ -268,8 +295,10 @@ class Mem0MemoryPlugin(Star):
         if subcommand == "status":
             state = "enabled" if self._enabled() else "disabled"
             key_state = "configured" if self._api_key() else "missing"
+            persona = await self._persona_id(event)
             yield event.plain_result(
-                f"mem0 memory: {state}, api_key: {key_state}, user_id: {self._user_id(event)}",
+                f"mem0 memory: {state}, api_key: {key_state}, "
+                f"user_id: {self._user_id(event, persona)}",
             )
             return
 
@@ -278,8 +307,11 @@ class Mem0MemoryPlugin(Star):
             if not query:
                 yield event.plain_result("Usage: /mem0 search <query>")
                 return
+            persona = await self._persona_id(event)
             try:
-                memories = await self._search_memories(query, self._user_id(event))
+                memories = await self._search_memories(
+                    query, self._user_id(event, persona)
+                )
             except Exception as exc:
                 yield event.plain_result(f"mem0 search failed: {exc}")
                 return
