@@ -40,6 +40,7 @@ class Mem0MemoryPlugin(Star):
             self.api_type = "oss"
         except RuntimeError:
             pass
+        logger.debug(f"[Mem0Memory] API type: {self.api_type} ({self._api_base()})")
 
     async def terminate(self):
         if self._session and not self._session.closed:
@@ -153,6 +154,7 @@ class Mem0MemoryPlugin(Star):
                 return text
 
     async def _search_memories(self, query: str, user_id: str) -> list[str]:
+        logger.debug(f"[Mem0Memory] Searching memories for user_id: {user_id}, query: {query}")
         payload = {
             "query": query,
             "filters": {"user_id": user_id},
@@ -168,6 +170,7 @@ class Mem0MemoryPlugin(Star):
     async def _add_memory(
         self, user_text: str, assistant_text: str, user_id: str
     ) -> None:
+        logger.debug(f"[Mem0Memory] Adding memory for user_id: {user_id}")
         metadata = {
             "source": "astrbot",
             "scope": self._cfg("memory_scope", "session"),
