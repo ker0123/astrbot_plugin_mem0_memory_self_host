@@ -1,6 +1,6 @@
 name: astrbot_plugin_mem0_memory
 display_name: mem0 长期记忆 / mem0 Long-term Memory
 desc: 为 AstrBot 接入 mem0 托管长期记忆；自动检索相关记忆并写入对话，让机器人跨会话记住用户偏好与长期上下文。Connect AstrBot to hosted mem0 long-term memory with automatic retrieval and conversation capture.
-version: 0.1.0
-author: Codex
-repo: https://github.com/Yuk1you/astrbot_plugin_mem0_memory
+version: 0.2.0
+author: CodeX, ker0123
+repo: https://github.com/ker0123/astrbot_plugin_mem0_memory
