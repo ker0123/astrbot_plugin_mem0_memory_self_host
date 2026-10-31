@@ -13,15 +13,15 @@ from astrbot.api.star import Context, Star, register
 V3_API_URL_BASE = "https://api.mem0.ai"
 V3_API_PATH_ADD = "/v3/memories/add"
 V3_API_PATH_SEARCH = "/v3/memories/search"
-OSS_API_PATH_ADD = "/memories/"
-OSS_API_PATH_SEARCH = "/search/"
+OSS_API_PATH_ADD = "/memories"
+OSS_API_PATH_SEARCH = "/search"
 
 
 @register(
     "astrbot_plugin_mem0_memory",
     "Codex",
     "Connects AstrBot conversations to hosted mem0 long-term memory.",
-    "0.2.0",
+    "0.2.1",
     "local",
 )
 class Mem0MemoryPlugin(Star):
