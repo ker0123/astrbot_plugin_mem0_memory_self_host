@@ -4,6 +4,12 @@
     "type": "bool",
     "default": true
   },
+  "mem0_api_url_base": {
+    "description": "mem0 API URL base",
+    "hint": "mem0 托管服务的地址。默认使用官方地址。",
+    "type": "string",
+    "default": "https://api.mem0.ai"
+  },
   "mem0_api_key": {
     "description": "mem0 API Key",
     "hint": "mem0 托管服务的 API Key。请勿公开或发给不可信的人。",

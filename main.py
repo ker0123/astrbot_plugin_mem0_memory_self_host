@@ -45,6 +45,10 @@ class Mem0MemoryPlugin(Star):
     def _api_key(self) -> str:
         return str(self._cfg("mem0_api_key", "") or "").strip()
 
+    def _api_base(self) -> str:
+        base = str(self._cfg("mem0_api_url_base", "") or "").strip()
+        return (base or MEM0_API_BASE).rstrip("/")
+
     def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Token {self._api_key()}",
@@ -78,7 +82,7 @@ class Mem0MemoryPlugin(Star):
         if not self._session or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=float(self._cfg("request_timeout", 12)))
             self._session = aiohttp.ClientSession(timeout=timeout)
-        url = f"{MEM0_API_BASE}{path}"
+        url = f"{self._api_base()}{path}"
         async with self._session.post(url, headers=self._headers(), json=payload) as resp:
             text = await resp.text()
             if resp.status >= 400:
