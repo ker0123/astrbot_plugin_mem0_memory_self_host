@@ -67,26 +67,26 @@ class Mem0MemoryPlugin(Star):
             headers["Authorization"] = f"Token {self._api_key()}"
         return headers
 
-    async def _persona_id(
-        self, event: AstrMessageEvent, req: ProviderRequest | None = None
-    ) -> str:
-        pid = req.conversation.persona_id if req and req.conversation else None
-        if not pid:
+    async def _persona_id(self, event, req=None) -> str:
+        conv_pid = req.conversation.persona_id if req and req.conversation else None
+        if not conv_pid:
             conv_mgr = self.context.conversation_manager
             cid = await conv_mgr.get_curr_conversation_id(event.unified_msg_origin)
             conversation = (
                 await conv_mgr.get_conversation(event.unified_msg_origin, cid)
-                if cid
-                else None
+                if cid else None
             )
-            pid = conversation.persona_id if conversation else None
-        if not pid:
-            pid = (
-                self.context.get_config(umo=event.unified_msg_origin)
-                .get("provider_settings", {})
-                .get("default_personality", "default")
+            conv_pid = conversation.persona_id if conversation else None
+        try:
+            _, persona, _, _ = await self.context.persona_manager.resolve_selected_persona(
+                umo=event.unified_msg_origin,
+                conversation_persona_id=conv_pid,
+                platform_name=event.get_platform_name(),
             )
-        return pid or "default"
+        except Exception as exc:
+            logger.debug(f"[Mem0Memory] persona resolve failed: {exc}")
+            return "default"
+        return (persona or {}).get("name") or "default"
 
     def _user_id(self, event: AstrMessageEvent, persona: str = "none") -> str:
         scope = str(self._cfg("memory_scope", "session")).lower()
