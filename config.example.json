@@ -8,5 +8,5 @@
   "search_limit": 5,
   "search_threshold": 0.1,
   "max_memory_chars": 240,
-  "request_timeout": 12
+  "request_timeout": 24
 }

@@ -32,10 +32,10 @@
     "hint": "session - 平台会话分别存储记忆; sender - 按发送者 ID 存储记忆",
     "type": "string",
     "options": [
-      "session",
-      "sender"
+      "sender",
+      "session"
     ],
-    "default": "session"
+    "default": "sender"
   },
   "user_id_prefix": {
     "description": "user id perfix",
@@ -65,6 +65,6 @@
     "description": "request timeout",
     "hint": "mem0 请求超时时间 (秒)",
     "type": "float",
-    "default": 12
+    "default": 24
   }
 }

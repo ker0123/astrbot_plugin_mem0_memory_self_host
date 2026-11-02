@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from typing import Any
@@ -16,6 +17,7 @@ V3_API_PATH_SEARCH = "/v3/memories/search"
 OSS_API_PATH_ADD = "/memories"
 OSS_API_PATH_SEARCH = "/search"
 
+ADD_QUEUE_MAXSIZE = 100
 
 @register(
     "astrbot_plugin_mem0_memory",
@@ -29,6 +31,8 @@ class Mem0MemoryPlugin(Star):
         super().__init__(context)
         self.config = config
         self._session: aiohttp.ClientSession | None = None
+        self._add_queue: asyncio.Queue[tuple[str, dict[str, Any]]] | None = None
+        self._add_worker: asyncio.Task | None = None
         self.api_type: str = "v3"
 
     async def initialize(self):
@@ -43,6 +47,12 @@ class Mem0MemoryPlugin(Star):
         logger.debug(f"[Mem0Memory] API type: {self.api_type} ({self._api_base()})")
 
     async def terminate(self):
+        if self._add_worker and not self._add_worker.done():
+            self._add_worker.cancel()
+            try:
+                await self._add_worker
+            except asyncio.CancelledError:
+                pass
         if self._session and not self._session.closed:
             await self._session.close()
 
@@ -113,7 +123,7 @@ class Mem0MemoryPlugin(Star):
         return False
 
     async def _post(self, path: str, payload: dict[str, Any]) -> Any:
-        seconds = float(self._cfg("request_timeout", 12) or 12)
+        seconds = float(self._cfg("request_timeout", 24) or 24)
         if not self._session or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=seconds)
             self._session = aiohttp.ClientSession(timeout=timeout)
@@ -133,7 +143,7 @@ class Mem0MemoryPlugin(Star):
             raise RuntimeError(f"mem0 {path} timed out after {seconds:g}s") from exc
 
     async def _get(self, path: str) -> Any:
-        seconds = float(self._cfg("request_timeout", 12) or 12)
+        seconds = float(self._cfg("request_timeout", 24) or 24)
         if not self._session or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=seconds)
             self._session = aiohttp.ClientSession(timeout=timeout)
@@ -180,7 +190,33 @@ class Mem0MemoryPlugin(Star):
             "metadata": metadata,
         }
         post_path = OSS_API_PATH_ADD if self.api_type == "oss" else V3_API_PATH_ADD
-        await self._post(post_path, payload)
+        queue = self._ensure_add_worker()
+        try:
+            queue.put_nowait((post_path, payload))
+        except asyncio.QueueFull:
+            logger.warning("[Mem0Memory] Add queue full, dropping one memory write.")
+        else:
+            logger.debug(f"[Mem0Memory] Queued memory write (pending={queue.qsize()}).")
+
+    def _ensure_add_worker(self) -> asyncio.Queue[tuple[str, dict[str, Any]]]:
+        if self._add_queue is None:
+            self._add_queue = asyncio.Queue(maxsize=ADD_QUEUE_MAXSIZE)
+        if self._add_worker is None or self._add_worker.done():
+            self._add_worker = asyncio.create_task(self._add_worker_loop())
+        return self._add_queue
+
+    async def _add_worker_loop(self) -> None:
+        queue = self._add_queue
+        if queue is None:
+            return
+        while True:
+            post_path, payload = await queue.get()
+            try:
+                await self._post(post_path, payload)
+            except Exception as exc:
+                logger.warning(f"[Mem0Memory] Add memory request failed: {exc}")
+            finally:
+                queue.task_done()
 
     def _extract_memory_texts(self, response: Any) -> list[str]:
         candidates: list[Any] = []
