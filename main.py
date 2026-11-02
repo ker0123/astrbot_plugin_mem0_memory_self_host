@@ -16,7 +16,8 @@ V3_API_PATH_ADD = "/v3/memories/add"
 V3_API_PATH_SEARCH = "/v3/memories/search"
 OSS_API_PATH_ADD = "/memories"
 OSS_API_PATH_SEARCH = "/search"
-ADD_QUEUE_MAXSIZE = 300
+ADD_QUEUE_MAXSIZE = 100
+ADD_REQUEST_TIMEOUT = 300
 
 
 @register(
@@ -122,10 +123,9 @@ class Mem0MemoryPlugin(Star):
                 return True
         return False
 
-    async def _post(self, path: str, payload: dict[str, Any]) -> Any:
-        seconds = float(self._cfg("request_timeout", 12) or 12)
+    async def _post(self, path: str, payload: dict[str, Any], time_out: float = 12) -> Any:
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=seconds)
+            timeout = aiohttp.ClientTimeout(total=time_out)
             self._session = aiohttp.ClientSession(timeout=timeout)
         url = f"{self._api_base()}{path}"
         try:
@@ -140,12 +140,11 @@ class Mem0MemoryPlugin(Star):
                 except json.JSONDecodeError:
                     return text
         except TimeoutError as exc:
-            raise RuntimeError(f"mem0 {path} timed out after {seconds:g}s") from exc
+            raise RuntimeError(f"mem0 {path} timed out after {time_out:g}s") from exc
 
-    async def _get(self, path: str) -> Any:
-        seconds = float(self._cfg("request_timeout", 12) or 12)
+    async def _get(self, path: str, time_out: float = 12) -> Any:
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=seconds)
+            timeout = aiohttp.ClientTimeout(total=time_out)
             self._session = aiohttp.ClientSession(timeout=timeout)
         url = f"{self._api_base()}{path}"
         try:
@@ -160,7 +159,7 @@ class Mem0MemoryPlugin(Star):
                 except json.JSONDecodeError:
                     return text
         except TimeoutError as exc:
-            raise RuntimeError(f"mem0 {path} timed out after {seconds:g}s") from exc
+            raise RuntimeError(f"mem0 {path} timed out after {time_out:g}s") from exc
 
     async def _search_memories(self, query: str, user_id: str) -> list[str]:
         payload = {
@@ -170,13 +169,14 @@ class Mem0MemoryPlugin(Star):
             "threshold": float(self._cfg("search_threshold", 0.1) or 0.1),
         }
         post_path = OSS_API_PATH_SEARCH if self.api_type == "oss" else V3_API_PATH_SEARCH
-        response = await self._post(post_path, payload)
+        t = self.config.get("request_timeout", 12) or 12
+        response = await self._post(post_path, payload, t)
         return self._extract_memory_texts(response)
 
     async def _add_memory(self, user_text: str, assistant_text: str, user_id: str) -> None:
         metadata = {
             "source": "astrbot",
-            "scope": self._cfg("memory_scope", "session"),
+            "scope": self._cfg("memory_scope", "sender"),
         }
         messages = [
             {"role": "user", "content": user_text},
@@ -212,8 +212,8 @@ class Mem0MemoryPlugin(Star):
             post_path, payload = await queue.get()
             try:
                 logger.debug("[add-memory-work-loop] add one start")
-                await self._post(post_path, payload)
-                logger.info(f"[add-memory-work-loop] add one done, while {queue.qsize} tasks in queue")
+                await self._post(post_path, payload, ADD_REQUEST_TIMEOUT)
+                logger.info(f"[add-memory-work-loop] add one done, while {queue.qsize()} tasks in queue")
             except Exception as exc:
                 logger.warning(f"[add-memory-work-loop] request failed: {exc}")
             finally:
