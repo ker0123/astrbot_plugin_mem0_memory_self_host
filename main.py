@@ -125,11 +125,16 @@ class Mem0MemoryPlugin(Star):
 
     async def _post(self, path: str, payload: dict[str, Any], time_out: float = 12) -> Any:
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=time_out)
-            self._session = aiohttp.ClientSession(timeout=timeout)
+            self._session = aiohttp.ClientSession()
+        timeout = aiohttp.ClientTimeout(total=time_out)
         url = f"{self._api_base()}{path}"
         try:
-            async with self._session.post(url, headers=self._headers(), json=payload) as resp:
+            async with self._session.post(
+                url,
+                headers=self._headers(),
+                json=payload,
+                timeout=timeout,
+            ) as resp:
                 text = await resp.text()
                 if resp.status >= 400:
                     raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
@@ -144,11 +149,15 @@ class Mem0MemoryPlugin(Star):
 
     async def _get(self, path: str, time_out: float = 12) -> Any:
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=time_out)
-            self._session = aiohttp.ClientSession(timeout=timeout)
+            self._session = aiohttp.ClientSession()
+        timeout = aiohttp.ClientTimeout(total=time_out)
         url = f"{self._api_base()}{path}"
         try:
-            async with self._session.get(url, headers=self._headers()) as resp:
+            async with self._session.get(
+                url,
+                headers=self._headers(),
+                timeout=timeout,
+            ) as resp:
                 text = await resp.text()
                 if resp.status >= 400:
                     raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
@@ -213,7 +222,9 @@ class Mem0MemoryPlugin(Star):
             try:
                 logger.debug("[add-memory-work-loop] add one start")
                 await self._post(post_path, payload, ADD_REQUEST_TIMEOUT)
-                logger.info(f"[add-memory-work-loop] add one done, while {queue.qsize()} tasks in queue")
+                logger.info(
+                    f"[add-memory-work-loop] add one done, while {queue.qsize()} tasks in queue"
+                )
             except Exception as exc:
                 logger.warning(f"[add-memory-work-loop] request failed: {exc}")
             finally:
