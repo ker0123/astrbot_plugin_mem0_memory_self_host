@@ -9,5 +9,5 @@
   "max_memory_chars": 240,
   "inject_as_system_prompt": true,
   "ignore_commands": true,
-  "request_timeout": 24
+  "request_timeout": 12
 }

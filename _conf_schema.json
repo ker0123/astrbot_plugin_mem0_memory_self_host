@@ -67,6 +67,6 @@
     "description": "request timeout",
     "hint": "mem0 请求超时时间 (秒)",
     "type": "float",
-    "default": 24
+    "default": 12
   }
 }

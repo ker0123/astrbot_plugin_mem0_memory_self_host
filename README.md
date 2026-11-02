@@ -122,7 +122,7 @@ data/config/astrbot_plugin_mem0_you_config.json
 | `max_memory_chars` | `240` | 单条注入记忆的最大字符数. |
 | `inject_as_system_prompt` | `true` | 注入到系统提示词; 关闭后注入到用户消息前. |
 | `ignore_commands` | `true` | 忽略以命令前缀开头的消息. |
-| `request_timeout` | `24` | 请求 mem0 API 的超时时间, 单位秒. |
+| `request_timeout` | `12` | 请求 mem0 API 的超时时间, 单位秒. |
 
 ## 命令
 

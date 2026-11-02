@@ -123,7 +123,7 @@ class Mem0MemoryPlugin(Star):
         return False
 
     async def _post(self, path: str, payload: dict[str, Any]) -> Any:
-        seconds = float(self._cfg("request_timeout", 24) or 24)
+        seconds = float(self._cfg("request_timeout", 12) or 12)
         if not self._session or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=seconds)
             self._session = aiohttp.ClientSession(timeout=timeout)
@@ -143,7 +143,7 @@ class Mem0MemoryPlugin(Star):
             raise RuntimeError(f"mem0 {path} timed out after {seconds:g}s") from exc
 
     async def _get(self, path: str) -> Any:
-        seconds = float(self._cfg("request_timeout", 24) or 24)
+        seconds = float(self._cfg("request_timeout", 12) or 12)
         if not self._session or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=seconds)
             self._session = aiohttp.ClientSession(timeout=timeout)
