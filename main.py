@@ -180,6 +180,14 @@ class Mem0MemoryPlugin(Star):
         post_path = OSS_API_PATH_SEARCH if self.api_type == "oss" else V3_API_PATH_SEARCH
         t = self.config.get("request_timeout", 12) or 12
         response = await self._post(post_path, payload, t)
+        results = response.get("results") if isinstance(response, dict) else None
+        if not results:
+            logger.warning(f"[search-memories] empty results, user_id={payload.get('user_id')}")
+        else:
+            logger.debug(
+                f"[search-memories] got {len(results)} memories: "
+                f"{[r.get('event') for r in results]}"
+            )
         return self._extract_memory_texts(response)
 
     async def _add_memory(self, user_text: str, assistant_text: str, user_id: str) -> None:
@@ -221,10 +229,15 @@ class Mem0MemoryPlugin(Star):
             post_path, payload = await queue.get()
             try:
                 logger.debug("[add-memory-work-loop] add one start")
-                await self._post(post_path, payload, ADD_REQUEST_TIMEOUT)
-                logger.info(
-                    f"[add-memory-work-loop] add one done, while {queue.qsize()} tasks in queue"
-                )
+                resp = await self._post(post_path, payload, ADD_REQUEST_TIMEOUT)
+                results = resp.get("results") if isinstance(resp, dict) else None
+                if not results:
+                    logger.warning(f"[add-memory] empty results, user_id={payload.get('user_id')}")
+                else:
+                    logger.debug(
+                        f"[add-memory] wrote {len(results)} memories: "
+                        f"{[r.get('event') for r in results]}"
+                    )
             except Exception as exc:
                 logger.warning(f"[add-memory-work-loop] request failed: {exc}")
             finally:
