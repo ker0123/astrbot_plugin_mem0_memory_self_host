@@ -4,7 +4,7 @@
 
 为 AstrBot 接入 [mem0](https://mem0.ai/) 长期记忆的轻量插件. 默认面向**自托管 mem0 服务**, 同时兼容 mem0 官方托管 API.
 
-插件会在每次请求 LLM 前检索与当前消息相关的长期记忆, 以受保护的背景信息注入提示词; 在 LLM 成功回复后, 把本轮对话异步写回 mem0. 机器人因此可以逐步记住用户偏好、长期事实、关系上下文和反复出现的话题.
+插件会在每次请求 LLM 前检索与当前消息相关的长期记忆, 以受保护的背景信息注入提示词; 在 LLM 成功回复后, 把本轮对话异步写回 mem0. 机器人因此可以逐步记住用户偏好, 长期事实, 关系上下文和反复出现的话题.
 
 ## 来源与致谢
 
@@ -100,15 +100,6 @@ C:\Users\<你的用户名>\.astrbot\data\plugins\astrbot_plugin_mem0_you\
 
 如果看到 `enabled` 和 `api_key: configured`, 说明插件已经启用.
 
-### 从旧版本迁移
-
-旧版插件目录名为 `astrbot_plugin_mem0_memory_self_host`, 配置文件名也随目录名变化. 升级时:
-
-1. 把仓库目录和 AstrBot 插件目录下的符号链接改名为 `astrbot_plugin_mem0_you`.
-2. 把 `data/config/astrbot_plugin_mem0_memory_self_host_config.json` 复制为 `data/config/astrbot_plugin_mem0_you_config.json`.
-3. 打开新配置, 删除已经废弃的 `mem0_api_type` 字段.
-4. 重载插件, 确认 `/mem0 status` 正常后再删除旧配置.
-
 ## 配置说明
 
 配置文件通常位于:
@@ -188,8 +179,6 @@ Content-Type: application/json
 }
 ```
 
-服务端也支持 `Authorization: Bearer <jwt>`, 但本插件目前统一使用 `X-API-Key`.
-
 ### mem0 官方托管 API
 
 - 写入: `POST /v3/memories/add`
@@ -203,7 +192,6 @@ Content-Type: application/json
 - 使用自托管 mem0 时, 对话数据只会发送到你自己配置的服务.
 - 使用官方托管 API 时, 用户消息和机器人回复会发送到 mem0 的托管服务.
 - 不建议在未告知用户的公开群或多人场景中启用长期记忆.
-- 不要把 `data/config/astrbot_plugin_mem0_you_config.json` 提交到 GitHub, 里面可能包含真实 API Key.
 - 插件默认忽略命令消息, 但普通聊天中的敏感信息仍可能被抽取为记忆.
 - 高敏感场景下, 请自行确认数据存储位置、访问控制和合规要求.
 
@@ -245,29 +233,3 @@ mem0 可能异步抽取和合并记忆. 写入接口返回成功后, 新记忆�
 ### 改名后配置没有生效
 
 AstrBot 的插件配置文件名取自插件目录名. 确认目录是 `astrbot_plugin_mem0_you`, 且配置文件名是 `astrbot_plugin_mem0_you_config.json`.
-
-## 开发说明
-
-核心文件:
-
-```text
-main.py
-_conf_schema.json
-metadata.yaml
-README.md
-CHANGELOG.md
-```
-
-约定:
-
-- 保持单文件实现, 请求与解析逻辑尽量复用.
-- 钩子内出错只记录 warning, 不影响正常对话.
-- 修改配置项时同步 `_conf_schema.json`、`config.example.json` 与本 README.
-- 修改版本号时同步 `metadata.yaml`、`main.py` 的 `@register` 和 `CHANGELOG.md`.
-- 改完运行 `ruff format` 与 `ruff check`.
-
-上游仓库: [Yuk1you/astrbot_plugin_mem0_memory](https://github.com/Yuk1you/astrbot_plugin_mem0_memory).
-
-## 许可证
-
-本仓库目前未附带 `LICENSE` 文件. 如需公开发布, 请补充许可证, 并确认与上游仓库的许可条件兼容.
