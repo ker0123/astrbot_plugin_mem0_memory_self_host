@@ -16,15 +16,15 @@ V3_API_PATH_ADD = "/v3/memories/add"
 V3_API_PATH_SEARCH = "/v3/memories/search"
 OSS_API_PATH_ADD = "/memories"
 OSS_API_PATH_SEARCH = "/search"
-
 ADD_QUEUE_MAXSIZE = 100
 
+
 @register(
-    "astrbot_plugin_mem0_memory",
-    "Codex",
-    "Connects AstrBot conversations to hosted mem0 long-term memory.",
-    "0.2.1",
-    "local",
+    "astrbot_plugin_mem0_you",
+    "Yuk1you, CodeX, ker0123",
+    "为 AstrBot 接入自托管 mem0 的长期记忆插件, 兼容官方托管 API.",
+    "0.3.0",
+    "https://github.com/ker0123/astrbot_plugin_mem0_you",
 )
 class Mem0MemoryPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -100,7 +100,7 @@ class Mem0MemoryPlugin(Star):
         return persona_id or "default"
 
     def _user_id(self, event: AstrMessageEvent, persona: str = "none") -> str:
-        scope = str(self._cfg("memory_scope", "session")).lower()
+        scope = str(self._cfg("memory_scope", "sender")).lower()
         if scope == "sender":
             scope = event.get_sender_id() or event.unified_msg_origin
         else:

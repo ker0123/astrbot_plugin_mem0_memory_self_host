@@ -1,6 +1,6 @@
-name: astrbot_plugin_mem0_memory
-display_name: mem0 长期记忆
-desc: 为 astrbot 做的 mem0 服务接入. 适配自托管版本 API
-version: 0.2.1
-author: CodeX, ker0123
-repo: https://github.com/ker0123/astrbot_plugin_mem0_memory_self_host
+name: astrbot_plugin_mem0_you
+display_name: mem0-you
+desc: 为 AstrBot 接入自托管 mem0 的长期记忆插件, 兼容官方托管 API
+version: 0.3.0
+author: Yuk1you, CodeX, ker0123
+repo: https://github.com/ker0123/astrbot_plugin_mem0_you
