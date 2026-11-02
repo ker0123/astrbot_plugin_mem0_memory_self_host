@@ -78,7 +78,7 @@ class Mem0MemoryPlugin(Star):
             )
             conv_pid = conversation.persona_id if conversation else None
         try:
-            _, persona, _, _ = await self.context.persona_manager.resolve_selected_persona(
+            persona_id, persona, _, _ = await self.context.persona_manager.resolve_selected_persona(
                 umo=event.unified_msg_origin,
                 conversation_persona_id=conv_pid,
                 platform_name=event.get_platform_name(),
@@ -86,7 +86,9 @@ class Mem0MemoryPlugin(Star):
         except Exception as exc:
             logger.debug(f"[Mem0Memory] persona resolve failed: {exc}")
             return "default"
-        return (persona or {}).get("name") or "default"
+        if persona and persona.get("name"):
+            return persona["name"]
+        return persona_id or "default"
 
     def _user_id(self, event: AstrMessageEvent, persona: str = "none") -> str:
         scope = str(self._cfg("memory_scope", "session")).lower()
