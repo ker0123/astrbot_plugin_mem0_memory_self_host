@@ -113,36 +113,44 @@ class Mem0MemoryPlugin(Star):
         return False
 
     async def _post(self, path: str, payload: dict[str, Any]) -> Any:
+        seconds = float(self._cfg("request_timeout", 12) or 12)
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=float(self._cfg("request_timeout", 12) or 12))
+            timeout = aiohttp.ClientTimeout(total=seconds)
             self._session = aiohttp.ClientSession(timeout=timeout)
         url = f"{self._api_base()}{path}"
-        async with self._session.post(url, headers=self._headers(), json=payload) as resp:
-            text = await resp.text()
-            if resp.status >= 400:
-                raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
-            if not text:
-                return None
-            try:
-                return json.loads(text)
-            except json.JSONDecodeError:
-                return text
+        try:
+            async with self._session.post(url, headers=self._headers(), json=payload) as resp:
+                text = await resp.text()
+                if resp.status >= 400:
+                    raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
+                if not text:
+                    return None
+                try:
+                    return json.loads(text)
+                except json.JSONDecodeError:
+                    return text
+        except TimeoutError as exc:
+            raise RuntimeError(f"mem0 {path} timed out after {seconds:g}s") from exc
 
     async def _get(self, path: str) -> Any:
+        seconds = float(self._cfg("request_timeout", 12) or 12)
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=float(self._cfg("request_timeout", 12) or 12))
+            timeout = aiohttp.ClientTimeout(total=seconds)
             self._session = aiohttp.ClientSession(timeout=timeout)
         url = f"{self._api_base()}{path}"
-        async with self._session.get(url, headers=self._headers()) as resp:
-            text = await resp.text()
-            if resp.status >= 400:
-                raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
-            if not text:
-                return None
-            try:
-                return json.loads(text)
-            except json.JSONDecodeError:
-                return text
+        try:
+            async with self._session.get(url, headers=self._headers()) as resp:
+                text = await resp.text()
+                if resp.status >= 400:
+                    raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
+                if not text:
+                    return None
+                try:
+                    return json.loads(text)
+                except json.JSONDecodeError:
+                    return text
+        except TimeoutError as exc:
+            raise RuntimeError(f"mem0 {path} timed out after {seconds:g}s") from exc
 
     async def _search_memories(self, query: str, user_id: str) -> list[str]:
         logger.debug(f"[Mem0Memory] Searching memories for user_id: {user_id}, query: {query}")
