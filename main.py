@@ -73,8 +73,7 @@ class Mem0MemoryPlugin(Star):
             conv_mgr = self.context.conversation_manager
             cid = await conv_mgr.get_curr_conversation_id(event.unified_msg_origin)
             conversation = (
-                await conv_mgr.get_conversation(event.unified_msg_origin, cid)
-                if cid else None
+                await conv_mgr.get_conversation(event.unified_msg_origin, cid) if cid else None
             )
             conv_pid = conversation.persona_id if conversation else None
         try:
@@ -115,19 +114,13 @@ class Mem0MemoryPlugin(Star):
 
     async def _post(self, path: str, payload: dict[str, Any]) -> Any:
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(
-                total=float(self._cfg("request_timeout", 12) or 12)
-            )
+            timeout = aiohttp.ClientTimeout(total=float(self._cfg("request_timeout", 12) or 12))
             self._session = aiohttp.ClientSession(timeout=timeout)
         url = f"{self._api_base()}{path}"
-        async with self._session.post(
-            url, headers=self._headers(), json=payload
-        ) as resp:
+        async with self._session.post(url, headers=self._headers(), json=payload) as resp:
             text = await resp.text()
             if resp.status >= 400:
-                raise RuntimeError(
-                    f"mem0 {path} failed: HTTP {resp.status} {text[:500]}"
-                )
+                raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
             if not text:
                 return None
             try:
@@ -137,17 +130,13 @@ class Mem0MemoryPlugin(Star):
 
     async def _get(self, path: str) -> Any:
         if not self._session or self._session.closed:
-            timeout = aiohttp.ClientTimeout(
-                total=float(self._cfg("request_timeout", 12) or 12)
-            )
+            timeout = aiohttp.ClientTimeout(total=float(self._cfg("request_timeout", 12) or 12))
             self._session = aiohttp.ClientSession(timeout=timeout)
         url = f"{self._api_base()}{path}"
         async with self._session.get(url, headers=self._headers()) as resp:
             text = await resp.text()
             if resp.status >= 400:
-                raise RuntimeError(
-                    f"mem0 {path} failed: HTTP {resp.status} {text[:500]}"
-                )
+                raise RuntimeError(f"mem0 {path} failed: HTTP {resp.status} {text[:500]}")
             if not text:
                 return None
             try:
@@ -163,15 +152,11 @@ class Mem0MemoryPlugin(Star):
             "top_k": int(self._cfg("search_limit", 5) or 5),
             "threshold": float(self._cfg("search_threshold", 0.1) or 0.1),
         }
-        post_path = (
-            OSS_API_PATH_SEARCH if self.api_type == "oss" else V3_API_PATH_SEARCH
-        )
+        post_path = OSS_API_PATH_SEARCH if self.api_type == "oss" else V3_API_PATH_SEARCH
         response = await self._post(post_path, payload)
         return self._extract_memory_texts(response)
 
-    async def _add_memory(
-        self, user_text: str, assistant_text: str, user_id: str
-    ) -> None:
+    async def _add_memory(self, user_text: str, assistant_text: str, user_id: str) -> None:
         logger.debug(f"[Mem0Memory] Adding memory for user_id: {user_id}")
         metadata = {
             "source": "astrbot",
@@ -258,9 +243,7 @@ class Mem0MemoryPlugin(Star):
             return
 
         if bool(self._cfg("inject_as_system_prompt", True)):
-            req.system_prompt = (req.system_prompt or "") + self._memory_context(
-                memories
-            )
+            req.system_prompt = (req.system_prompt or "") + self._memory_context(memories)
         else:
             req.prompt = f"{self._memory_context(memories)}\n{req.prompt or prompt}"
         logger.debug(f"[Mem0Memory] Injected {len(memories)} memories.")
@@ -269,9 +252,7 @@ class Mem0MemoryPlugin(Star):
     async def record_mem0_memory(self, event: AstrMessageEvent, response: LLMResponse):
         if not self._enabled() or not self._api_key():
             return
-        user_text = (
-            event.get_extra("mem0_memory_prompt") or event.get_message_str() or ""
-        )
+        user_text = event.get_extra("mem0_memory_prompt") or event.get_message_str() or ""
         user_text = user_text.strip()
         assistant_text = (response.completion_text or "").strip()
         if self._should_skip_prompt(event, user_text) or not assistant_text:
@@ -312,18 +293,14 @@ class Mem0MemoryPlugin(Star):
                 return
             persona = await self._persona_id(event)
             try:
-                memories = await self._search_memories(
-                    query, self._user_id(event, persona)
-                )
+                memories = await self._search_memories(query, self._user_id(event, persona))
             except Exception as exc:
                 yield event.plain_result(f"mem0 search failed: {exc}")
                 return
             if not memories:
                 yield event.plain_result("mem0 found no matching memories.")
                 return
-            yield event.plain_result(
-                "\n".join(f"{idx + 1}. {m}" for idx, m in enumerate(memories))
-            )
+            yield event.plain_result("\n".join(f"{idx + 1}. {m}" for idx, m in enumerate(memories)))
             return
 
         yield event.plain_result("Usage: /mem0 status | /mem0 search <query>")
