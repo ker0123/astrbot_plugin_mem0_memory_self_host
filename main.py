@@ -44,7 +44,7 @@ class Mem0MemoryPlugin(Star):
             self.api_type = "oss"
         except RuntimeError:
             pass
-        logger.debug(f"[Mem0Memory] API type: {self.api_type} ({self._api_base()})")
+        logger.debug(f"API type: {self.api_type} ({self._api_base()})")
 
     async def terminate(self):
         if self._add_worker and not self._add_worker.done():
@@ -93,7 +93,7 @@ class Mem0MemoryPlugin(Star):
                 platform_name=event.get_platform_name(),
             )
         except Exception as exc:
-            logger.debug(f"[Mem0Memory] persona resolve failed: {exc}")
+            logger.debug(f"persona resolve failed: {exc}")
             return "default"
         if persona and persona.get("name"):
             return persona["name"]
@@ -163,7 +163,7 @@ class Mem0MemoryPlugin(Star):
             raise RuntimeError(f"mem0 {path} timed out after {seconds:g}s") from exc
 
     async def _search_memories(self, query: str, user_id: str) -> list[str]:
-        logger.debug(f"[Mem0Memory] Searching memories for user_id: {user_id}, query: {query}")
+        logger.debug(f"searching memories for user_id: {user_id}, query: {query}")
         payload = {
             "query": query,
             "filters": {"user_id": user_id},
@@ -175,7 +175,7 @@ class Mem0MemoryPlugin(Star):
         return self._extract_memory_texts(response)
 
     async def _add_memory(self, user_text: str, assistant_text: str, user_id: str) -> None:
-        logger.debug(f"[Mem0Memory] Adding memory for user_id: {user_id}")
+        logger.debug(f"adding memory for user_id: {user_id}")
         metadata = {
             "source": "astrbot",
             "scope": self._cfg("memory_scope", "session"),
@@ -194,9 +194,9 @@ class Mem0MemoryPlugin(Star):
         try:
             queue.put_nowait((post_path, payload))
         except asyncio.QueueFull:
-            logger.warning("[Mem0Memory] Add queue full, dropping one memory write.")
+            logger.warning("add queue full, dropping one memory write.")
         else:
-            logger.debug(f"[Mem0Memory] Queued memory write (pending={queue.qsize()}).")
+            logger.debug(f"queued memory write (pending={queue.qsize()}).")
 
     def _ensure_add_worker(self) -> asyncio.Queue[tuple[str, dict[str, Any]]]:
         if self._add_queue is None:
@@ -214,7 +214,7 @@ class Mem0MemoryPlugin(Star):
             try:
                 await self._post(post_path, payload)
             except Exception as exc:
-                logger.warning(f"[Mem0Memory] Add memory request failed: {exc}")
+                logger.warning(f"add memory request failed: {exc}")
             finally:
                 queue.task_done()
 
@@ -280,7 +280,7 @@ class Mem0MemoryPlugin(Star):
         try:
             memories = await self._search_memories(prompt, user_id)
         except Exception as exc:
-            logger.warning(f"[Mem0Memory] Search failed: {exc}")
+            logger.warning(f"search failed: {exc}")
             return
 
         if not memories:
@@ -290,7 +290,7 @@ class Mem0MemoryPlugin(Star):
             req.system_prompt = (req.system_prompt or "") + self._memory_context(memories)
         else:
             req.prompt = f"{self._memory_context(memories)}\n{req.prompt or prompt}"
-        logger.debug(f"[Mem0Memory] Injected {len(memories)} memories.")
+        logger.debug(f"injected {len(memories)} memories.")
 
     @filter.on_llm_response(priority=20)
     async def record_mem0_memory(self, event: AstrMessageEvent, response: LLMResponse):
@@ -311,9 +311,9 @@ class Mem0MemoryPlugin(Star):
                 assistant_text=assistant_text,
                 user_id=self._user_id(event, persona),
             )
-            logger.debug("[Mem0Memory] Saved conversation turn to mem0.")
+            logger.debug("saved conversation turn to mem0.")
         except Exception as exc:
-            logger.warning(f"[Mem0Memory] Save failed: {exc}")
+            logger.warning(f"save failed: {exc}")
 
     @filter.command("mem0")
     async def mem0_command(self, event: AstrMessageEvent):
