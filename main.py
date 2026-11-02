@@ -181,13 +181,7 @@ class Mem0MemoryPlugin(Star):
         t = self.config.get("request_timeout", 12) or 12
         response = await self._post(post_path, payload, t)
         results = response.get("results") if isinstance(response, dict) else None
-        if not results:
-            logger.warning(f"[search-memories] empty results, user_id={payload.get('user_id')}")
-        else:
-            logger.debug(
-                f"[search-memories] got {len(results)} memories: "
-                f"{[r.get('event') for r in results]}"
-            )
+        logger.debug(f"[search-memories] {results=}")
         return self._extract_memory_texts(response)
 
     async def _add_memory(self, user_text: str, assistant_text: str, user_id: str) -> None:
@@ -231,13 +225,7 @@ class Mem0MemoryPlugin(Star):
                 logger.debug("[add-memory-work-loop] add one start")
                 resp = await self._post(post_path, payload, ADD_REQUEST_TIMEOUT)
                 results = resp.get("results") if isinstance(resp, dict) else None
-                if not results:
-                    logger.warning(f"[add-memory] empty results, user_id={payload.get('user_id')}")
-                else:
-                    logger.debug(
-                        f"[add-memory] wrote {len(results)} memories: "
-                        f"{[r.get('event') for r in results]}"
-                    )
+                logger.debug(f"[add-memory-work-loop] {results=}")
             except Exception as exc:
                 logger.warning(f"[add-memory-work-loop] request failed: {exc}")
             finally:
