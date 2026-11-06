@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0-dev] - 2026-11-06
+
+### Added
+
+- 新增 `identity_store.py`：用 SQLite 邻接表保存 `alt`（小号）和 `member_of`（成员 -> 群）两类边。
+- 新增 `docs/DESIGN-v0.4.md`：记录 `agent_id` + 身份图的完整设计、函数定义、查询语法、写入策略和测试计划。
+- 新增配置项：`agent_id_prefix`、`group_memory_enabled`、`group_recall_enabled`、`group_memory_limit`、`personal_memory_limit`、`max_scope_nodes`、`identity_db_path`、`group_member_sync_enabled`、`group_sync_ttl`、`admin_ids`、`group_memory_prompt`、`user_memory_prompt`。
+- 新增管理命令：`/mem0 link`、`/mem0 unlink`、`/mem0 join`、`/mem0 leave`、`/mem0 graph`、`/mem0 syncgroup`。
+
+### Changed
+
+- `main.py` 重写为 v0.4 骨架：函数定义、输入输出注释和函数体内的实现流程注释，具体实现暂未填入。
+- 记忆索引从 `user_id = prefix:persona:scope` 改为 `agent_id` + `user_id` 分离：
+  - `agent_id = <agent_id_prefix>:<persona_id>`。
+  - `user_id = <platform>:user:<sender_id>` 或 `<platform>:group:<group_id>`。
+- 私聊作用域改为「身份分量 + 所有可见群」；群聊作用域改为「当前群 + 身份分量」，不扩散到发言人的其他群。
+- `memory_scope` 标记废弃；`user_id_prefix` 保留为 `agent_id_prefix` 的回退。
+- 检索改为 `agent_id` + `OR[{"user_id": ...}]`，因为 mem0 的 `user_id: {"in": [...]}` 会返回 400。
+
+### Breaking
+
+- 旧版复合 `user_id` 与新查询不兼容；旧 `memories` 表保留归档，不做自动迁移。
+- 当前 `dev` 分支是骨架，插件在填入实现前不能正常工作。
+
 ## [0.3.0] - 2026-11-02
 
 ### Changed
